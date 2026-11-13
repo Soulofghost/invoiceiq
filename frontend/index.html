@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InvoiceIQ — Intelligent Invoice Extraction &amp; AP Automation</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="ap-shell">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>INVOICEIQ <span class="badge-tag">AI PARSER</span></h1>
+          <p class="brand-caption">HEURISTIC NLP EXTRACTION • ARITHMETIC RECONCILIATION • ACCOUNTS PAYABLE</p>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <button id="refreshSummaryBtn" class="btn btn-secondary">Sync Ledger</button>
+      </div>
+    </header>
+
+    <!-- Metrics Ribbon -->
+    <section class="metrics-ribbon">
+      <div class="metric-card">
+        <span class="m-label">TOTAL INVOICE VOLUME</span>
+        <span class="m-val text-cyan font-mono" id="statInvoices">0</span>
+        <span class="m-sub">Ledger Records Processed</span>
+      </div>
+      <div class="metric-card">
+        <span class="m-label">TOTAL AP EXPENDITURE</span>
+        <span class="m-val text-emerald font-mono" id="statSpend">$0.00</span>
+        <span class="m-sub" id="statApprovedSpend">Approved: $0.00</span>
+      </div>
+      <div class="metric-card">
+        <span class="m-label">PENDING APPROVAL QUEUE</span>
+        <span class="m-val text-amber font-mono" id="statPending">0</span>
+        <span class="m-sub">Awaiting AP Sign-off</span>
+      </div>
+      <div class="metric-card">
+        <span class="m-label">ARITHMETIC RECONCILIATION</span>
+        <span class="m-val text-gold font-mono" id="statRecon">100.0%</span>
+        <span class="m-sub">Formula Verification Index</span>
+      </div>
+      <div class="metric-card">
+        <span class="m-label">DETECTED ANOMALIES</span>
+        <span class="m-val text-coral font-mono" id="statAnomalies">0</span>
+        <span class="m-sub">Tax &amp; Math Discrepancies</span>
+      </div>
+    </section>
+
+    <!-- Main Workspace -->
+    <main class="console-body">
+      <!-- Left Column: Parser & Sandbox -->
+      <section class="col-parser">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Intelligent Invoice Extraction Sandbox</h2>
+            <span class="sub-caption">Paste raw invoice text or select a realistic template</span>
+          </div>
+
+          <div class="preset-strip">
+            <span class="preset-label">Templates:</span>
+            <button type="button" class="btn btn-xs btn-outline" onclick="loadTemplate('AWS')">AWS Cloud Bill</button>
+            <button type="button" class="btn btn-xs btn-outline" onclick="loadTemplate('DATADOG')">Datadog APM</button>
+            <button type="button" class="btn btn-xs btn-outline" onclick="loadTemplate('DISCREPANCY')">Math Discrepancy Error</button>
+          </div>
+
+          <form id="extractForm" class="invoice-form" style="margin-top: 1rem;">
+            <div class="form-row">
+              <label>Raw Invoice Text Payload</label>
+              <textarea id="rawInvoiceInput" rows="9" placeholder="Paste invoice text here..." required></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="extractBtn">Run AI Extraction &amp; Reconcile</button>
+            </div>
+          </form>
+
+          <!-- Extracted Result Preview -->
+          <div class="extracted-card hidden" id="extractedResultCard">
+            <div class="extracted-header">
+              <div>
+                <span class="ext-inv-num font-mono" id="extInvNum">INV-000</span>
+                <span class="ext-vendor" id="extVendor">Vendor Name</span>
+              </div>
+              <div id="extReconBadge">
+                <span class="badge-recon verified">RECONCILED</span>
+              </div>
+            </div>
+
+            <div class="extracted-grid font-mono">
+              <div><span class="lbl">Date:</span> <span id="extDate">--</span></div>
+              <div><span class="lbl">Due Date:</span> <span id="extDueDate">--</span></div>
+              <div><span class="lbl">Tax ID:</span> <span id="extTaxId">--</span></div>
+              <div><span class="lbl">Currency:</span> <span id="extCurrency">USD</span></div>
+            </div>
+
+            <div class="items-table-wrap">
+              <table class="items-table">
+                <thead>
+                  <tr>
+                    <th>Item Description</th>
+                    <th>Qty</th>
+                    <th>Unit Price</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody id="extItemsBody">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+
+            <div class="extracted-totals font-mono">
+              <div>Subtotal: <strong id="extSubtotal">$0.00</strong></div>
+              <div>Tax Amount: <strong id="extTax">$0.00</strong></div>
+              <div class="ext-grand-total">Total Due: <strong class="text-emerald" id="extTotal">$0.00</strong></div>
+            </div>
+
+            <div class="anomaly-alert-box hidden" id="extAnomalyBox">
+              <!-- Rendered dynamically -->
+            </div>
+
+            <div class="form-actions" style="margin-top: 1rem;">
+              <button type="button" class="btn btn-emerald" id="saveInvoiceBtn">Save To Accounts Payable Ledger</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Invoices Ledger -->
+      <section class="col-ledger">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Accounts Payable Ledger</h2>
+              <span class="sub-caption">Audited enterprise billing records</span>
+            </div>
+            <div class="filter-strip">
+              <select id="statusFilter" class="select-sm">
+                <option value="">ALL STATUSES</option>
+                <option value="PENDING_REVIEW">PENDING REVIEW</option>
+                <option value="APPROVED">APPROVED</option>
+                <option value="PAID">PAID</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="ledger-list" id="ledgerContainer">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
